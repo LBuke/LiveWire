@@ -1,0 +1,5 @@
+name: LiveWire
+version: ${version}
+main: com.teddeh.LiveWire
+api-version: '1.21'
+authors: [ Teddeh (Lbuke) ]
