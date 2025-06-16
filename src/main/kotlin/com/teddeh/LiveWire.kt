@@ -76,7 +76,7 @@ class LiveWire : JavaPlugin() {
                     val fileName = event.context() as Path
 
                     // Ensure to only take action on jar files
-                    if (fileName.toString().endsWith(".jar"))
+                    if (!fileName.toString().endsWith(".jar"))
                         return@Runnable
 
                     val newPluginJar = File(liveWireDir, fileName.toString())
