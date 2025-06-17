@@ -47,8 +47,8 @@ class LiveWire : JavaPlugin() {
 
     /** Listen for updates within the livewire directory */
     private fun watchDirectory() {
-        val worldContainer = Bukkit.getWorldContainer()
-        val liveWireDir = File(worldContainer, "livewire")
+        val root = Bukkit.getPluginsFolder().parentFile
+        val liveWireDir = File(root, "livewire")
 
         // Create the livewire directory if it doesn't exist
         if (!liveWireDir.exists()) {
