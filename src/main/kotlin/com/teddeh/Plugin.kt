@@ -8,6 +8,10 @@ import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.lang.ref.WeakReference
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.jar.JarFile
 
 val PLUGINS = mutableSetOf<Plugin>()
@@ -91,22 +95,55 @@ fun findAllPlugins() {
     }
 }
 
-/** Fetch the plugin.yml 'name' field from the jar */
-fun getPluginNameFromJar(jar: File): String? {
-    runCatching {
-        JarFile(jar).use { jarFile ->
-            val entry = jarFile.getEntry("plugin.yml") ?: jarFile.getEntry("paper-plugin.yml")
-            if (entry != null) {
-                jarFile.getInputStream(entry).bufferedReader().use { reader ->
-                    val name = YamlConfiguration.loadConfiguration(reader).getString("name")
-                    if (name != null) return name
-                    println("Could not resolve name in ${jar.name}")
-                }
-            }
-        }
-    }.onFailure {
-        println("Failed to read ${jar.name}: ${it.message}")
+private const val MAX_RETRIES = 10
+private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
+/** Get the plugin name from the jar async, tries multiple times */
+fun getPluginNameFromJarAsync(
+    jar: File,
+    attempt: Int = 0
+): CompletableFuture<String> {
+    // Stop retrying after MAX_RETRIES
+    if (attempt >= MAX_RETRIES) {
+        return CompletableFuture.completedFuture(null)
     }
 
-    return null
+    val promise = CompletableFuture<String>()
+
+    // Try immediately
+    scheduler.execute {
+        try {
+            JarFile(jar).use { jarFile ->
+                val entry = jarFile.getEntry("plugin.yml")
+                    ?: jarFile.getEntry("paper-plugin.yml")
+
+                if (entry != null) {
+                    jarFile.getInputStream(entry).bufferedReader().use { reader ->
+                        val name = YamlConfiguration
+                            .loadConfiguration(reader)
+                            .getString("name")
+
+                        if (name != null) {
+                            promise.complete(name)
+                        } else {
+                            promise.complete(null)  // no name field
+                        }
+                    }
+                } else {
+                    promise.complete(null)      // no plugin.yml
+                }
+            }
+        } catch (_: Exception) {
+            // schedule a retry in 1 second
+            scheduler.schedule({
+                getPluginNameFromJarAsync(jar, attempt + 1)
+                    .whenComplete { result, _ ->
+                        promise.complete(result)
+                    }
+            }, 2, TimeUnit.SECONDS)
+        }
+    }
+
+    return promise
 }
+

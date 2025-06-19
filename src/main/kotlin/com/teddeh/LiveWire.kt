@@ -70,7 +70,8 @@ class LiveWire : JavaPlugin() {
 
                     // If the change is not a newly added file, ignore it.
                     val kind = event.kind()
-                    if (kind != StandardWatchEventKinds.ENTRY_CREATE)
+                    println(kind)
+                    if (kind != StandardWatchEventKinds.ENTRY_CREATE && kind != StandardWatchEventKinds.ENTRY_MODIFY)
                         continue
 
                     val fileName = event.context() as Path
@@ -80,55 +81,61 @@ class LiveWire : JavaPlugin() {
                         return@Runnable
 
                     val newPluginJar = File(liveWireDir, fileName.toString())
-                    val name = getPluginNameFromJar(newPluginJar)
-                    if (name == null) {
-                        println("$fileName does not contain a plugin.yml")
-                        return@Runnable
-                    }
+                    getPluginNameFromJarAsync(newPluginJar).whenComplete { name, error ->
+                        if (error != null) {
+                            println("Error reading plugin name from jar: ${error.message}")
+                            return@whenComplete
+                        }
 
-                    val plugin = PLUGINS.find { it.name.equals(name, true) }
+                        if (name == null) {
+                            println("$fileName does not contain a plugin.yml")
+                            return@whenComplete
+                        }
 
-                    // This is the jar being replaced, if exists.
-                    val oldPluginJar = plugin?.absolutePath?.let { File(it) }
+                        val plugin = PLUGINS.find { it.name.equals(name, true) }
 
-                    val ignored = isIgnored(name)
-                    if (ignored) println("$name is ignoring hot-reloads")
+                        // This is the jar being replaced, if exists.
+                        val oldPluginJar = plugin?.absolutePath?.let { File(it) }
 
-                    // Ensure this part runs on bukkit's main thread
-                    server.scheduler.runTask(this, Runnable {
-                        var output: Path? = null
+                        val ignored = isIgnored(name)
+                        if (ignored) println("$name is ignoring hot-reloads")
 
-                        if (!ignored) {
-                            // If the plugin currently exists, destroy it!
-                            if (plugin != null) disablePlugin(plugin)
+                        // Ensure this part runs on bukkit's main thread
+                        server.scheduler.runTask(this, Runnable {
+                            var output: Path? = null
 
-                            // Delete the plugin jar in the plugins directory.
-                            if (oldPluginJar != null) {
-                                Files.deleteIfExists(oldPluginJar.toPath())
+                            if (!ignored) {
+                                // If the plugin currently exists, destroy it!
+                                if (plugin != null) disablePlugin(plugin)
+
+                                // Delete the plugin jar in the plugins directory.
+                                if (oldPluginJar != null) {
+                                    Files.deleteIfExists(oldPluginJar.toPath())
+                                }
+
+                                // Copy over the new plugin jar from livewire directory.
+                                output = Files.copy(
+                                    newPluginJar.toPath(),
+                                    File(Bukkit.getPluginsFolder(), fileName.toString()).toPath(),
+                                    StandardCopyOption.REPLACE_EXISTING
+                                )
                             }
 
-                            // Copy over the new plugin jar from livewire directory.
-                            output = Files.copy(
-                                newPluginJar.toPath(),
-                                File(Bukkit.getPluginsFolder(), fileName.toString()).toPath(),
-                                StandardCopyOption.REPLACE_EXISTING
-                            )
-                        }
+                            // Delete the plugin from livewire directory
+                            Files.deleteIfExists(newPluginJar.toPath())
 
-                        // Delete the plugin from livewire directory
-                        Files.deleteIfExists(newPluginJar.toPath())
+                            if (!ignored) {
+                                // Load the plugin
+                                enablePlugin(output?.toFile()?.absolutePath ?: return@Runnable)
 
-                        if (!ignored) {
-                            // Load the plugin
-                            enablePlugin(output?.toFile()?.absolutePath ?: return@Runnable)
+                                // Refresh plugin references
+                                findAllPlugins()
 
-                            // Refresh plugin references
-                            findAllPlugins()
-
-                            // Also reload plugins that depend on THIS plugin.
-                            reloadIfDependsOn(name)
-                        }
-                    })
+                                // Also reload plugins that depend on THIS plugin.
+                                reloadIfDependsOn(name)
+                            }
+                        })
+                    }
                 }
                 key.reset()
             } catch (e: Exception) {
