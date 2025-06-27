@@ -4,6 +4,10 @@
 
 When you upload a `.jar` to a special folder, LiveWire detects the change and automatically handles unloading the old version and loading the new one — no server restart required.
 
+> [!CAUTION]
+> LiveWire is designed to accelerate development workflows. While it's a powerful tool for testing and iteration, it is not recommended for use in production environments, as hot-reloading may introduce instability or unexpected behavior.
+
+
 ---
 
 ## 🛠️ How to Use
