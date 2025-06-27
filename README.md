@@ -6,6 +6,19 @@ When you upload a `.jar` to a special folder, LiveWire detects the change and au
 
 ---
 
+## 🛠️ How to Use
+
+Once installed, using LiveWire is simple:
+
+1. Build or obtain the .jar file for your plugin.
+2. Drop the .jar into the `/livewire` folder.
+3. LiveWire will automatically:
+ - Detect the file
+ -  Unload any previously loaded version of the plugin
+ -  Load the new version
+
+---
+
 ## ✨ Features
 
 - 📂 Creates a `/livewire` directory in the server root
@@ -28,6 +41,8 @@ When you upload a `.jar` to a special folder, LiveWire detects the change and au
 ## ⚙️ Configuration
 
 LiveWire includes a simple config file to ignore specific plugins by name using regular expressions.
+
+If a dependency doesn't like being hot-reloaded, you can exclude it here.
 
 ### `config.yml`
 
