@@ -23,15 +23,6 @@ Once installed, using LiveWire is simple:
 
 ---
 
-## ✨ Features
-
-- 📂 Creates a `/livewire` directory in the server root
-- 🔄 Watches the directory for new or updated `.jar` files
-- 🚀 Automatically hot-reloads plugins when `.jar`s are added or replaced
-- 🚫 Supports configurable regex-based ignore patterns for specific plugins
-
----
-
 ## 📦 Installation
 
 1. Download the latest version of `LiveWire.jar`
